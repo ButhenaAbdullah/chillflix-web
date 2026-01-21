@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/netflix/navbar"
 import { MovieRow } from "@/components/netflix/movie-row"
 import { MovieModal } from "@/components/netflix/movie-modal"
@@ -9,6 +10,7 @@ import { tmdbApi, getKidsContent, GENRES_KIDS } from "@/lib/tmdb"
 import type { Movie } from "@/lib/tmdb"
 
 export default function KidsPage() {
+  const router = useRouter()
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
   const [heroMovie, setHeroMovie] = useState<Movie | null>(null)
 
@@ -25,6 +27,29 @@ export default function KidsPage() {
       }
     }
     fetchHeroKids()
+
+    // Initialize Ko-fi widget
+    const script = document.createElement('script')
+    script.src = 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'
+    script.async = true
+    script.onload = () => {
+      if (typeof window !== 'undefined' && (window as any).kofiWidgetOverlay) {
+        (window as any).kofiWidgetOverlay.draw('buthenaabdullah', {
+          'type': 'floating-chat',
+          'floating-chat.donateButton.text': 'Tip Me',
+          'floating-chat.donateButton.background-color': '#d9534f',
+          'floating-chat.donateButton.text-color': '#fff'
+        })
+      }
+    }
+    document.body.appendChild(script)
+
+    return () => {
+      // Cleanup script on unmount
+      if (document.body.contains(script)) {
+        document.body.removeChild(script)
+      }
+    }
   }, [])
 
   const handleOpenModal = (movie: Movie) => {
@@ -33,6 +58,23 @@ export default function KidsPage() {
 
   const handleCloseModal = () => {
     setSelectedMovie(null)
+  }
+
+  const handlePlay = () => {
+    if (!heroMovie) return
+    
+    const mediaType = heroMovie.media_type || 'movie'
+    const params = new URLSearchParams({
+      id: heroMovie.id.toString(),
+      type: mediaType,
+      title: encodeURIComponent(heroMovie.title),
+      ...(mediaType === 'tv' && {
+        season: '1',
+        episode: '1'
+      })
+    })
+
+    router.push(`/player?${params.toString()}`)
   }
 
   return (
@@ -60,7 +102,10 @@ export default function KidsPage() {
             <p className="text-white/90 text-base md:text-lg line-clamp-3">{heroMovie.description}</p>
             
             <div className="flex items-center gap-3 pt-2">
-              <button className="flex items-center gap-2 bg-white hover:bg-white/80 text-black font-semibold px-6 md:px-8 py-2 md:py-3 rounded transition-all">
+              <button 
+                onClick={handlePlay}
+                className="flex items-center gap-2 bg-white hover:bg-white/80 text-black font-semibold px-6 md:px-8 py-2 md:py-3 rounded transition-all"
+              >
                 <span className="text-lg md:text-xl">▶ Play</span>
               </button>
               <button

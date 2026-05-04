@@ -31,9 +31,9 @@ const SERVERS: Record<Server, ServerConfig> = {
     supportsArabic: true,
     buildUrl: ({ tmdbId, mediaType, season, episode }) => {
       if (mediaType === 'tv') {
-        return `https://vidlink.pro/tv/${tmdbId}/${season || 1}/${episode || 1}?player=jw&primaryColor=E50914&secondaryColor=831010&iconColor=FFFFFF&autoplay=true`
+        return `https://vidlink.pro/tv/${tmdbId}/${season || 1}/${episode || 1}?player=default&primaryColor=E50914&secondaryColor=831010&iconColor=FFFFFF&autoplay=true`
       }
-      return `https://vidlink.pro/movie/${tmdbId}?player=jw&primaryColor=E50914&secondaryColor=831010&iconColor=FFFFFF&autoplay=true`
+      return `https://vidlink.pro/movie/${tmdbId}?player=default&primaryColor=E50914&secondaryColor=831010&iconColor=FFFFFF&autoplay=true`
     }
   },
   server2: {

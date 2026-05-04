@@ -16,7 +16,7 @@ export function Hero({ onMoreInfo, mediaTypeFilter = 'all' }: HeroProps) {
   const [featuredMovie, setFeaturedMovie] = useState<Movie | null>(null)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const [showTrailer, setShowTrailer] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
   const [logo, setLogo] = useState<string | null>(null)
   const videoRef = useRef<HTMLIFrameElement>(null)
 

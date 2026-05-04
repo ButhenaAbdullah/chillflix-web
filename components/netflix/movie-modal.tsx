@@ -35,6 +35,7 @@ interface DetailedMovie extends Movie {
 export function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
   const router = useRouter()
   const modalRef = useRef<HTMLDivElement>(null)
+  const [activeMovie, setActiveMovie] = useState<Movie | null>(movie)
   const [details, setDetails] = useState<DetailedMovie | null>(null)
   const [similar, setSimilar] = useState<Movie[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,9 +45,15 @@ export function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
   
   // Trailer states
   const [showTrailer, setShowTrailer] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
   const trailerTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveMovie(movie)
+    }
+  }, [movie, isOpen])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -65,20 +72,26 @@ export function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
   }, [isOpen, onClose])
 
   useEffect(() => {
-    if (!movie || !isOpen) return
+    if (!activeMovie || !isOpen) return
 
     setLoading(true)
+    setDetails(null)
+    setSimilar([])
+    setEpisodes([])
+    setSelectedSeason(1)
+    setTrailerKey(null)
     setShowTrailer(false)
+    setIsMuted(false)
     
     if (trailerTimeoutRef.current) {
       clearTimeout(trailerTimeoutRef.current)
     }
 
-    const mediaType: 'movie' | 'tv' = movie.media_type === 'tv' || movie.seasons ? 'tv' : 'movie'
+    const mediaType: 'movie' | 'tv' = activeMovie.media_type === 'tv' || activeMovie.seasons ? 'tv' : 'movie'
     
     const detailsUrl = mediaType === 'tv' 
-      ? tmdbApi.getTVDetails(movie.id)
-      : tmdbApi.getMovieDetails(movie.id)
+      ? tmdbApi.getTVDetails(activeMovie.id)
+      : tmdbApi.getMovieDetails(activeMovie.id)
 
     Promise.all([
       fetch(detailsUrl).then(res => res.json()),
@@ -109,7 +122,7 @@ export function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
         }
 
         const updatedMovie: DetailedMovie = {
-          ...movie,
+          ...activeMovie,
           cast: detailsData.credits?.cast?.slice(0, 5).map((c: any) => c.name) || [],
           creator: detailsData.created_by?.[0]?.name || 
                    detailsData.credits?.crew?.find((c: any) => c.job === 'Director')?.name || 
@@ -140,21 +153,21 @@ export function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
 
         setDetails(updatedMovie)
 
-// Around line 160-170, update the similar movies mapping:
-const convertedSimilar = similarData.results
-  ?.slice(0, 6)
-  .map((tmdbMovie: any) => convertTMDBToMovie(tmdbMovie, tmdbMovie.media_type))
-  .filter((movie: Movie | null): movie is Movie => movie !== null) || [] // Add this filter!
+        const convertedSimilar = similarData.results
+          ?.slice(0, 6)
+          .map((tmdbMovie: any) => convertTMDBToMovie(tmdbMovie, tmdbMovie.media_type || mediaType))
+          .filter((movie: Movie | null): movie is Movie => movie !== null) || []
 
-setSimilar(convertedSimilar)
+        setSimilar(convertedSimilar)
+        setLoading(false)
         // Load episodes for TV shows
         if (mediaType === 'tv' && detailsData.number_of_seasons > 0) {
-          loadEpisodes(movie.id, 1)
+          loadEpisodes(activeMovie.id, 1)
         }
       })
       .catch(err => {
         console.error('Error fetching movie details:', err)
-        setDetails(movie as DetailedMovie)
+        setDetails(activeMovie as DetailedMovie)
         setLoading(false)
       })
 
@@ -163,7 +176,7 @@ setSimilar(convertedSimilar)
         clearTimeout(trailerTimeoutRef.current)
       }
     }
-  }, [movie, isOpen])
+  }, [activeMovie, isOpen])
 
   const loadEpisodes = async (tvId: number, seasonNumber: number) => {
     setLoadingEpisodes(true)
@@ -180,8 +193,8 @@ setSimilar(convertedSimilar)
 
   const handleSeasonChange = (seasonNumber: number) => {
     setSelectedSeason(seasonNumber)
-    if (movie) {
-      loadEpisodes(movie.id, seasonNumber)
+    if (activeMovie) {
+      loadEpisodes(activeMovie.id, seasonNumber)
     }
   }
 
@@ -199,13 +212,13 @@ setSimilar(convertedSimilar)
   }
 
   const handlePlay = (season?: number, episode?: number) => {
-    if (!movie) return
+    if (!activeMovie) return
     
-    const mediaType = movie.media_type || 'movie'
+    const mediaType = activeMovie.media_type || 'movie'
     const params = new URLSearchParams({
-      id: movie.id.toString(),
+      id: activeMovie.id.toString(),
       type: mediaType,
-      title: encodeURIComponent(movie.title),
+      title: encodeURIComponent(activeMovie.title),
       ...(mediaType === 'tv' && {
         season: season?.toString() || selectedSeason.toString(),
         episode: episode?.toString() || '1'
@@ -215,9 +228,16 @@ setSimilar(convertedSimilar)
     router.push(`/player?${params.toString()}`)
   }
 
-  if (!isOpen || !movie) return null
+  const handleSimilarClick = (similarMovie: Movie) => {
+    setActiveMovie(similarMovie)
+    requestAnimationFrame(() => {
+      modalRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+    })
+  }
 
-  const displayMovie = details || movie
+  if (!isOpen || !activeMovie) return null
+
+  const displayMovie = details || activeMovie
 
   return (
     <div
@@ -439,7 +459,8 @@ setSimilar(convertedSimilar)
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {similar.map((show, index) => (
                 <div
-                  key={index}
+                  key={`${show.media_type || 'movie'}-${show.id}-${index}`}
+                  onClick={() => handleSimilarClick(show)}
                   className="bg-[#2f2f2f] rounded overflow-hidden cursor-pointer hover:ring-1 hover:ring-white transition-all"
                 >
                   <div className="relative aspect-video">
